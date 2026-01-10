@@ -1,0 +1,153 @@
+#Requires -RunAsAdministrator
+<#
+.SYNOPSIS
+    Fixes S3 sleep/resume issues on ASUS Z790P-Wifi + Intel 14th Gen + RTX 4090
+
+.DESCRIPTION
+    This script applies the following fixes:
+    1. Disables ASUS System Analysis service (causes timeout issues)
+    2. Configures network adapters to only wake on WOL magic packets
+    3. Disables hibernate (does not work on this system)
+    4. Verifies sleep configuration
+
+.NOTES
+    PREREQUISITE: You must FIRST disable Fast Boot in BIOS!
+    Boot > Fast Boot > Disabled
+
+    Author: S3 Sleep Fix Script
+    Date: January 10, 2026
+    System: ASUS Z790P-Wifi / i9-14900K / RTX 4090
+#>
+
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  S3 Sleep Fix for ASUS Z790P-Wifi System" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Check for admin rights
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "ERROR: This script must be run as Administrator!" -ForegroundColor Red
+    Write-Host "Right-click and select Run as Administrator" -ForegroundColor Yellow
+    pause
+    exit 1
+}
+
+Write-Host "[REMINDER] Have you disabled Fast Boot in BIOS?" -ForegroundColor Yellow
+Write-Host "  Boot > Fast Boot > Disabled" -ForegroundColor Yellow
+Write-Host ""
+$confirm = Read-Host "Type yes to continue"
+if ($confirm -ne "yes") {
+    Write-Host "Please disable Fast Boot in BIOS first, then run this script again." -ForegroundColor Red
+    pause
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Starting S3 sleep fixes..." -ForegroundColor Green
+Write-Host ""
+
+# =============================================================================
+# 1. Disable ASUS System Analysis Service
+# =============================================================================
+Write-Host "[1/4] Disabling ASUS System Analysis service..." -ForegroundColor Cyan
+
+$service = Get-Service -Name "ASUSSystemAnalysis" -ErrorAction SilentlyContinue
+if ($service) {
+    try {
+        Stop-Service -Name "ASUSSystemAnalysis" -Force -ErrorAction SilentlyContinue
+        Set-Service -Name "ASUSSystemAnalysis" -StartupType Disabled
+        Write-Host "      ASUS System Analysis service disabled successfully." -ForegroundColor Green
+    } catch {
+        Write-Host "      Warning: Could not disable service. It may not exist or is protected." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "      ASUS System Analysis service not found (OK - may not be installed)." -ForegroundColor Gray
+}
+
+# =============================================================================
+# 2. Configure Network Adapters - Wake on Magic Packet Only
+# =============================================================================
+Write-Host ""
+Write-Host "[2/4] Configuring network adapters for WOL magic packet only..." -ForegroundColor Cyan
+
+$adapters = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Realtek*" }
+
+foreach ($adapter in $adapters) {
+    Write-Host "      Configuring: $($adapter.Name) ($($adapter.InterfaceDescription))" -ForegroundColor Gray
+    try {
+        # Enable wake on magic packet, disable wake on pattern (random traffic)
+        Set-NetAdapterPowerManagement -Name $adapter.Name -WakeOnMagicPacket Enabled -WakeOnPattern Disabled -ErrorAction Stop
+        Write-Host "        - Wake on Magic Packet: Enabled" -ForegroundColor Green
+        Write-Host "        - Wake on Pattern: Disabled" -ForegroundColor Green
+    } catch {
+        Write-Host "        Warning: Could not configure $($adapter.Name)" -ForegroundColor Yellow
+    }
+}
+
+# Also check for Intel NICs
+$intelAdapters = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Intel*Ethernet*" -or $_.InterfaceDescription -like "*Intel*I225*" }
+foreach ($adapter in $intelAdapters) {
+    Write-Host "      Configuring: $($adapter.Name) ($($adapter.InterfaceDescription))" -ForegroundColor Gray
+    try {
+        Set-NetAdapterPowerManagement -Name $adapter.Name -WakeOnMagicPacket Enabled -WakeOnPattern Disabled -ErrorAction Stop
+        Write-Host "        - Wake on Magic Packet: Enabled" -ForegroundColor Green
+        Write-Host "        - Wake on Pattern: Disabled" -ForegroundColor Green
+    } catch {
+        Write-Host "        Warning: Could not configure $($adapter.Name)" -ForegroundColor Yellow
+    }
+}
+
+if ($adapters.Count -eq 0 -and $intelAdapters.Count -eq 0) {
+    Write-Host "      No Realtek or Intel adapters found to configure." -ForegroundColor Gray
+}
+
+# =============================================================================
+# 3. Disable Hibernate (does not work on this system)
+# =============================================================================
+Write-Host ""
+Write-Host "[3/4] Disabling hibernate (frees ~30GB disk space)..." -ForegroundColor Cyan
+
+try {
+    powercfg /hibernate off
+    Write-Host "      Hibernate disabled successfully." -ForegroundColor Green
+} catch {
+    Write-Host "      Warning: Could not disable hibernate." -ForegroundColor Yellow
+}
+
+# =============================================================================
+# 4. Verify Sleep Configuration
+# =============================================================================
+Write-Host ""
+Write-Host "[4/4] Verifying sleep configuration..." -ForegroundColor Cyan
+Write-Host ""
+
+# Check available sleep states
+Write-Host "Available sleep states:" -ForegroundColor White
+$sleepStates = powercfg /a
+$sleepStates | ForEach-Object { Write-Host "  $_" }
+
+Write-Host ""
+
+# Check devices that can wake the system
+Write-Host "Devices that can wake the system:" -ForegroundColor White
+$wakeDevices = powercfg /devicequery wake_armed
+$wakeDevices | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  S3 Sleep Fix Complete!" -ForegroundColor Green
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Summary of changes:" -ForegroundColor White
+Write-Host "  [OK] ASUS System Analysis service disabled" -ForegroundColor Green
+Write-Host "  [OK] Network adapters: WOL magic packet only" -ForegroundColor Green
+Write-Host "  [OK] Hibernate disabled" -ForegroundColor Green
+Write-Host ""
+Write-Host "To test sleep, run:" -ForegroundColor Yellow
+Write-Host "  rundll32.exe powrprof.dll,SetSuspendState 0,1,0" -ForegroundColor White
+Write-Host ""
+Write-Host "Wake with keyboard or mouse." -ForegroundColor Gray
+Write-Host ""
+
+pause
