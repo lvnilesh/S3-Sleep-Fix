@@ -8,7 +8,9 @@
     1. Disables ASUS System Analysis service (causes timeout issues)
     2. Configures network adapters to only wake on WOL magic packets
     3. Disables hibernate (does not work on this system)
-    4. Verifies sleep configuration
+    4. Disables Hybrid Sleep (prevents prolonged sleep crashes)
+    5. Disables Wake Timers (prevents scheduled wake interruptions)
+    6. Verifies sleep configuration
 
 .NOTES
     PREREQUISITE: You must FIRST disable Fast Boot in BIOS!
@@ -50,7 +52,7 @@ Write-Host ""
 # =============================================================================
 # 1. Disable ASUS System Analysis Service
 # =============================================================================
-Write-Host "[1/4] Disabling ASUS System Analysis service..." -ForegroundColor Cyan
+Write-Host "[1/5] Disabling ASUS System Analysis service..." -ForegroundColor Cyan
 
 $service = Get-Service -Name "ASUSSystemAnalysis" -ErrorAction SilentlyContinue
 if ($service) {
@@ -69,7 +71,7 @@ if ($service) {
 # 2. Configure Network Adapters - Wake on Magic Packet Only
 # =============================================================================
 Write-Host ""
-Write-Host "[2/4] Configuring network adapters for WOL magic packet only..." -ForegroundColor Cyan
+Write-Host "[2/5] Configuring network adapters for WOL magic packet only..." -ForegroundColor Cyan
 
 $adapters = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Realtek*" }
 
@@ -106,7 +108,7 @@ if ($adapters.Count -eq 0 -and $intelAdapters.Count -eq 0) {
 # 3. Disable Hibernate (does not work on this system)
 # =============================================================================
 Write-Host ""
-Write-Host "[3/4] Disabling hibernate (frees ~30GB disk space)..." -ForegroundColor Cyan
+Write-Host "[3/5] Disabling hibernate (frees ~30GB disk space)..." -ForegroundColor Cyan
 
 try {
     powercfg /hibernate off
@@ -116,10 +118,42 @@ try {
 }
 
 # =============================================================================
-# 4. Verify Sleep Configuration
+# 4. Disable Hybrid Sleep (prevents prolonged sleep crashes)
 # =============================================================================
 Write-Host ""
-Write-Host "[4/4] Verifying sleep configuration..." -ForegroundColor Cyan
+Write-Host "[4/5] Disabling Hybrid Sleep and Wake Timers..." -ForegroundColor Cyan
+
+try {
+    # Disable Hybrid Sleep (AC and DC)
+    powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP HYBRIDSLEEP 0
+    powercfg /setdcvalueindex SCHEME_CURRENT SUB_SLEEP HYBRIDSLEEP 0
+    Write-Host "      Hybrid Sleep disabled." -ForegroundColor Green
+} catch {
+    Write-Host "      Warning: Could not disable Hybrid Sleep." -ForegroundColor Yellow
+}
+
+try {
+    # Disable Wake Timers (AC and DC)
+    powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 0
+    powercfg /setdcvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 0
+    Write-Host "      Wake Timers disabled." -ForegroundColor Green
+} catch {
+    Write-Host "      Warning: Could not disable Wake Timers." -ForegroundColor Yellow
+}
+
+try {
+    # Apply the changes
+    powercfg /setactive SCHEME_CURRENT
+    Write-Host "      Power settings applied." -ForegroundColor Green
+} catch {
+    Write-Host "      Warning: Could not apply power settings." -ForegroundColor Yellow
+}
+
+# =============================================================================
+# 5. Verify Sleep Configuration
+# =============================================================================
+Write-Host ""
+Write-Host "[5/5] Verifying sleep configuration..." -ForegroundColor Cyan
 Write-Host ""
 
 # Check available sleep states
@@ -143,6 +177,8 @@ Write-Host "Summary of changes:" -ForegroundColor White
 Write-Host "  [OK] ASUS System Analysis service disabled" -ForegroundColor Green
 Write-Host "  [OK] Network adapters: WOL magic packet only" -ForegroundColor Green
 Write-Host "  [OK] Hibernate disabled" -ForegroundColor Green
+Write-Host "  [OK] Hybrid Sleep disabled" -ForegroundColor Green
+Write-Host "  [OK] Wake Timers disabled" -ForegroundColor Green
 Write-Host ""
 Write-Host "To test sleep, run:" -ForegroundColor Yellow
 Write-Host "  rundll32.exe powrprof.dll,SetSuspendState 0,1,0" -ForegroundColor White

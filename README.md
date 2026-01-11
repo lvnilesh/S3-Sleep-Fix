@@ -17,6 +17,7 @@ This guide documents the fixes required to get S3 sleep/resume working properly 
 1. **S3 Sleep would not resume** - System hung on wake, required hard power off
 2. **Hibernate would not resume** - Same issue (not fixed, disabled instead)
 3. **Auto-wake from sleep** - Network adapters waking system on network traffic
+4. **Prolonged sleep crash** - System crashes during extended sleep periods
 
 ## Fixes Applied
 
@@ -29,7 +30,7 @@ This guide documents the fixes required to get S3 sleep/resume working properly 
 3. Set **Fast Boot** to **Disabled**
 4. Save and Exit (F10)
 
-> ⚠️ Without this change, S3 sleep will NOT work properly on Z790 boards.
+> WARNING: Without this change, S3 sleep will NOT work properly on Z790 boards.
 
 ### 2. Update NVIDIA Driver
 
@@ -55,6 +56,8 @@ The script will:
 - Disable the problematic ASUS System Analysis service
 - Configure network adapters to only wake on WOL magic packets (prevents random wake)
 - Disable hibernate (doesn't work on this system, frees ~30GB disk space)
+- Disable Hybrid Sleep (prevents prolonged sleep crashes)
+- Disable Wake Timers (prevents scheduled tasks from waking system)
 - Verify sleep states are available
 
 ### 4. Test Sleep
@@ -90,6 +93,13 @@ Get-WinEvent -FilterHashtable @{LogName='System'; Id=41,6008} -MaxEvents 5
 Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Power-Troubleshooter'} -MaxEvents 5 | Format-List TimeCreated, Message
 ```
 
+### If prolonged sleep still fails
+
+Try these additional BIOS settings:
+- **C-State settings** - Try disabling deep C-states (C6, C7, C8)
+- **Package C-State Limit** - Set to C2 or disable
+- **ASPM (Active State Power Management)** - Disable
+
 ## Summary of Changes
 
 | Change | Method | Purpose |
@@ -100,6 +110,8 @@ Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Window
 | Network Wake on Pattern = Disabled | Script | Prevents auto-wake from network traffic |
 | Wake on Magic Packet = Enabled | Script | Preserves Wake-on-LAN functionality |
 | Hibernate = Disabled | Script | Doesn't work, frees disk space |
+| Hybrid Sleep = Disabled | Script | Prevents prolonged sleep crashes |
+| Wake Timers = Disabled | Script | Prevents scheduled wake interruptions |
 
 ## Power Settings (Default)
 
