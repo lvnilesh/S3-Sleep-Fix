@@ -260,6 +260,61 @@ if (-not $existingEdgeExt) {
 }
 
 # ============================================================================
+# INSTALL ASUS THUNDERBOLTEX 4 DRIVER
+# ============================================================================
+Write-Step "Installing ASUS ThunderboltEX 4 Driver"
+
+# Check if Thunderbolt driver is already installed
+$thunderboltInstalled = Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | 
+    Where-Object { $_.FriendlyName -like "*Thunderbolt*" -or $_.InstanceId -like "*THUNDERBOLT*" }
+
+if ($thunderboltInstalled) {
+    Write-Success "Thunderbolt driver is already installed. Skipping."
+} else {
+    $thunderboltDriverUrl = "https://download.i.cloudgenius.app/Windows/Thunderbolt/DRV_Thunderbolt_Intel_UWD_TP_W11_64_V14113400_20230818R.zip"
+    $thunderboltZipPath = "$env:TEMP\ThunderboltEX4_Driver.zip"
+    $thunderboltExtractPath = "$env:TEMP\ThunderboltEX4_Driver"
+    
+    try {
+        Write-Info "Downloading Intel Thunderbolt Driver v1.41.1340.0..."
+        Invoke-WebRequest -Uri $thunderboltDriverUrl -OutFile $thunderboltZipPath -UseBasicParsing
+        
+        Write-Info "Extracting driver package..."
+        if (Test-Path $thunderboltExtractPath) {
+            Remove-Item -Path $thunderboltExtractPath -Recurse -Force
+        }
+        Expand-Archive -Path $thunderboltZipPath -DestinationPath $thunderboltExtractPath -Force
+        
+        # Find and run the installer
+        $setupExe = Get-ChildItem -Path $thunderboltExtractPath -Recurse -Filter "*.exe" | 
+            Where-Object { $_.Name -match "Setup|Install" } | Select-Object -First 1
+        
+        if ($setupExe) {
+            Write-Info "Running Thunderbolt driver installer: $($setupExe.Name)..."
+            Start-Process -FilePath $setupExe.FullName -ArgumentList "/quiet", "/norestart" -Wait
+            Write-Success "Thunderbolt driver installation completed."
+        } else {
+            # Try running inf installer if no exe found
+            $infFile = Get-ChildItem -Path $thunderboltExtractPath -Recurse -Filter "*.inf" | Select-Object -First 1
+            if ($infFile) {
+                Write-Info "Installing driver via INF file..."
+                pnputil /add-driver $infFile.FullName /install
+                Write-Success "Thunderbolt driver installation completed."
+            } else {
+                Write-Warning "Could not find installer. Extracted files are in: $thunderboltExtractPath"
+                explorer.exe $thunderboltExtractPath
+            }
+        }
+        
+        # Cleanup
+        Remove-Item -Path $thunderboltZipPath -Force -ErrorAction SilentlyContinue
+        
+    } catch {
+        Write-Error "Failed to install Thunderbolt driver: $_"
+    }
+}
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 Write-Step "Installation Summary"
@@ -270,6 +325,7 @@ Write-Host "  - Visual Studio Code" -ForegroundColor Gray
 Write-Host "  - Google Chrome" -ForegroundColor Gray
 Write-Host "  - Apple Music" -ForegroundColor Gray
 Write-Host "  - Windows Subsystem for Linux (WSL)" -ForegroundColor Gray
+Write-Host "  - ASUS ThunderboltEX 4 Driver" -ForegroundColor Gray
 
 Write-Host "`nBrowser Extensions configured:" -ForegroundColor White
 Write-Host "  - Bitwarden for Chrome" -ForegroundColor Gray
