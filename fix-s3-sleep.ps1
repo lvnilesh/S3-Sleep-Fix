@@ -150,10 +150,46 @@ try {
 }
 
 # =============================================================================
-# 5. Verify Sleep Configuration
+# 5. Prevent Sleep During Media Playback
 # =============================================================================
 Write-Host ""
-Write-Host "[5/5] Verifying sleep configuration..." -ForegroundColor Cyan
+Write-Host "[5/6] Configuring media playback power settings..." -ForegroundColor Cyan
+
+try {
+    # Multimedia settings subgroup GUID: 9596fb26-9850-41fd-ac3e-f7c3c00afd4b
+    # When sharing media setting GUID: 03680956-93bc-4294-bba6-4e0f09bb717f
+    # Value 1 = Prevent idling to sleep
+    
+    powercfg /setacvalueindex SCHEME_CURRENT 9596fb26-9850-41fd-ac3e-f7c3c00afd4b 03680956-93bc-4294-bba6-4e0f09bb717f 1
+    powercfg /setdcvalueindex SCHEME_CURRENT 9596fb26-9850-41fd-ac3e-f7c3c00afd4b 03680956-93bc-4294-bba6-4e0f09bb717f 1
+    Write-Host "      'When sharing media' set to prevent sleep." -ForegroundColor Green
+} catch {
+    Write-Host "      Warning: Could not configure media playback settings." -ForegroundColor Yellow
+}
+
+try {
+    # Disable USB selective suspend (prevents audio device issues)
+    # USB settings subgroup: 2a737441-1930-4402-8d77-b2bebba308a3
+    # USB selective suspend: 48e6b7a6-50f5-4782-a5d4-53bb8f07e226
+    # 0 = Disabled
+    powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+    powercfg /setdcvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+    Write-Host "      USB selective suspend disabled." -ForegroundColor Green
+} catch {
+    Write-Host "      Warning: Could not disable USB selective suspend." -ForegroundColor Yellow
+}
+
+try {
+    powercfg /setactive SCHEME_CURRENT
+} catch {
+    # Silent - already applied above
+}
+
+# =============================================================================
+# 6. Verify Sleep Configuration
+# =============================================================================
+Write-Host ""
+Write-Host "[6/6] Verifying sleep configuration..." -ForegroundColor Cyan
 Write-Host ""
 
 # Check available sleep states
@@ -179,6 +215,8 @@ Write-Host "  [OK] Network adapters: WOL magic packet only" -ForegroundColor Gre
 Write-Host "  [OK] Hibernate disabled" -ForegroundColor Green
 Write-Host "  [OK] Hybrid Sleep disabled" -ForegroundColor Green
 Write-Host "  [OK] Wake Timers disabled" -ForegroundColor Green
+Write-Host "  [OK] Prevent sleep during media playback" -ForegroundColor Green
+Write-Host "  [OK] USB selective suspend disabled" -ForegroundColor Green
 Write-Host ""
 Write-Host "To test sleep, run:" -ForegroundColor Yellow
 Write-Host "  rundll32.exe powrprof.dll,SetSuspendState 0,1,0" -ForegroundColor White

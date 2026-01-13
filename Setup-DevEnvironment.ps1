@@ -67,6 +67,27 @@ function Test-CommandExists {
     return [bool](Get-Command $Command -ErrorAction SilentlyContinue)
 }
 
+function Set-RegistryValue {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [int]$Value,
+        [string]$Type = "DWord"
+    )
+    
+    try {
+        if (!(Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
+        return $true
+    }
+    catch {
+        Write-Error "Failed to set $Name : $_"
+        return $false
+    }
+}
+
 function Install-WingetPackage {
     param(
         [string]$PackageId,
@@ -260,6 +281,67 @@ if (-not $existingEdgeExt) {
 }
 
 # ============================================================================
+# REMOVE WINDOWS 11 ADS AND SUGGESTIONS
+# ============================================================================
+Write-Step "Removing Windows 11 Ads and Suggestions"
+
+$cdmPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+$explorerPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+
+# Step 1: Disable Lock Screen tips and tricks
+Write-Info "Disabling Lock Screen ads..."
+Set-RegistryValue -Path $cdmPath -Name "RotatingLockScreenOverlayEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-338387Enabled" -Value 0 | Out-Null
+
+# Step 2: Disable personalized ads and advertising ID
+Write-Info "Disabling personalized ads..."
+Set-RegistryValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-338393Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-353694Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-353696Enabled" -Value 0 | Out-Null
+
+# Step 3: Disable Windows tips and suggestions notifications
+Write-Info "Disabling tips and suggestions..."
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-338389Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SoftLandingEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $explorerPath -Name "ShowSyncProviderNotifications" -Value 0 | Out-Null
+Set-RegistryValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement" -Name "ScoobeSystemSettingEnabled" -Value 0 | Out-Null
+
+# Step 4: Disable Start Menu recommendations
+Write-Info "Disabling Start Menu recommendations..."
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-338388Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-310093Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SystemPaneSuggestionsEnabled" -Value 0 | Out-Null
+
+# Step 5: Disable File Explorer ads (sync provider notifications)
+Write-Info "Disabling File Explorer ads..."
+Set-RegistryValue -Path $explorerPath -Name "ShowSyncProviderNotifications" -Value 0 | Out-Null
+
+# Step 6: Disable automatic app suggestions and installations
+Write-Info "Disabling automatic app suggestions..."
+Set-RegistryValue -Path $cdmPath -Name "SilentInstalledAppsEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "ContentDeliveryAllowed" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "OemPreInstalledAppsEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "PreInstalledAppsEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "PreInstalledAppsEverEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "FeatureManagementEnabled" -Value 0 | Out-Null
+
+# Step 7: Disable additional promotional content
+Write-Info "Disabling additional promotional content..."
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-314563Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-338380Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-353698Enabled" -Value 0 | Out-Null
+Set-RegistryValue -Path $cdmPath -Name "SubscribedContent-280815Enabled" -Value 0 | Out-Null
+
+# Step 8: Disable Bing search in Start Menu
+Write-Info "Disabling Bing search in Start Menu..."
+Set-RegistryValue -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1 | Out-Null
+Set-RegistryValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Value 0 | Out-Null
+Set-RegistryValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Value 0 | Out-Null
+
+Write-Success "Windows 11 ads and suggestions disabled."
+
+# ============================================================================
 # INSTALL ASUS THUNDERBOLTEX 4 DRIVER
 # ============================================================================
 Write-Step "Installing ASUS ThunderboltEX 4 Driver"
@@ -330,6 +412,11 @@ Write-Host "  - ASUS ThunderboltEX 4 Driver" -ForegroundColor Gray
 Write-Host "`nBrowser Extensions configured:" -ForegroundColor White
 Write-Host "  - Bitwarden for Chrome" -ForegroundColor Gray
 Write-Host "  - Bitwarden for Edge" -ForegroundColor Gray
+
+Write-Host "`nSystem optimizations applied:" -ForegroundColor White
+Write-Host "  - Windows 11 ads and suggestions disabled" -ForegroundColor Gray
+Write-Host "  - Bing search in Start Menu disabled" -ForegroundColor Gray
+Write-Host "  - Automatic app suggestions disabled" -ForegroundColor Gray
 
 if ($script:RestartRequired) {
     Write-Host "`n" -NoNewline
