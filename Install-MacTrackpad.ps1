@@ -149,16 +149,16 @@ Write-Host "  6. Restart your PC" -ForegroundColor White
 Write-Host ""
 
 # Offer to open Device Manager
-$openDevMgr = Read-Host "Open Device Manager now? (Y/n)"
-if ($openDevMgr -ne "n" -and $openDevMgr -ne "N") {
+$openDevMgr = Read-Host "Open Device Manager now? (y/n)"
+if ($openDevMgr -eq "y") {
     Start-Process "devmgmt.msc"
 }
 
 # Offer to restart
 if (-not $SkipReboot) {
     Write-Host ""
-    $restart = Read-Host "Restart computer now? (y/N)"
-    if ($restart -eq "y" -or $restart -eq "Y") {
+    $restart = Read-Host "Restart computer now? (y/n)"
+    if ($restart -eq "y") {
         Write-Status "Restarting in 5 seconds..." "Yellow"
         Start-Sleep -Seconds 5
         Restart-Computer -Force

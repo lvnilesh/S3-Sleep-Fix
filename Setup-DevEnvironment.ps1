@@ -179,7 +179,18 @@ Install-WingetPackage -PackageId "Microsoft.VisualStudioCode" -PackageName "Visu
 
 # --- Google Chrome ---
 Write-Step "Installing Google Chrome"
-Install-WingetPackage -PackageId "Google.Chrome" -PackageName "Google Chrome"
+# Check if Chrome is already installed (may have been installed outside winget)
+$chromePaths = @(
+    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+    "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+)
+$chromeInstalled = $chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($chromeInstalled) {
+    Write-Success "Google Chrome is already installed at: $chromeInstalled. Skipping."
+} else {
+    Install-WingetPackage -PackageId "Google.Chrome" -PackageName "Google Chrome"
+}
 
 # --- Apple Music (Microsoft Store) ---
 Write-Step "Installing Apple Music"
@@ -421,8 +432,8 @@ Write-Host "  - Automatic app suggestions disabled" -ForegroundColor Gray
 if ($script:RestartRequired) {
     Write-Host "`n" -NoNewline
     Write-Warning "A system restart is required to complete WSL installation."
-    $restart = Read-Host "Would you like to restart now? (Y/N)"
-    if ($restart -eq 'Y' -or $restart -eq 'y') {
+    $restart = Read-Host "Would you like to restart now? (y/n)"
+    if ($restart -eq 'y') {
         Write-Info "Restarting in 10 seconds..."
         Start-Sleep -Seconds 10
         Restart-Computer -Force

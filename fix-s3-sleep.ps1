@@ -38,8 +38,8 @@ if (-not $isAdmin) {
 Write-Host "[REMINDER] Have you disabled Fast Boot in BIOS?" -ForegroundColor Yellow
 Write-Host "  Boot > Fast Boot > Disabled" -ForegroundColor Yellow
 Write-Host ""
-$confirm = Read-Host "Type yes to continue"
-if ($confirm -ne "yes") {
+$confirm = Read-Host "Have you disabled Fast Boot in BIOS? (y/n)"
+if ($confirm -ne "y") {
     Write-Host "Please disable Fast Boot in BIOS first, then run this script again." -ForegroundColor Red
     pause
     exit 1
