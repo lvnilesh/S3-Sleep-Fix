@@ -1,6 +1,10 @@
-# S3 Sleep Fix for ASUS Z790P-Wifi + Intel 14th Gen + RTX 4090
+# Windows System Setup & S3 Sleep Fix
 
-This guide documents the fixes required to get S3 sleep/resume working properly on this system.
+A collection of PowerShell scripts to configure a fresh Windows 11 installation, including S3 sleep fixes for ASUS Z790P-Wifi + Intel 14th Gen + RTX 4090.
+
+## Quick Start
+
+**Double-click `Setup-DevEnvironment.bat`** and follow the interactive prompts to run any or all of the included scripts.
 
 ## System Configuration
 
@@ -12,66 +16,95 @@ This guide documents the fixes required to get S3 sleep/resume working properly 
 | **RAM** | 64GB DDR5 |
 | **OS** | Windows 11 |
 
-## Issues Encountered
+## Included Scripts
 
-1. **S3 Sleep would not resume** - System hung on wake, required hard power off
-2. **Hibernate would not resume** - Same issue (not fixed, disabled instead)
-3. **Auto-wake from sleep** - Network adapters waking system on network traffic
-4. **Prolonged sleep crash** - System crashes during extended sleep periods
+### 1. S3 Sleep Fix (`fix-s3-sleep.ps1`)
 
-## Fixes Applied
+Fixes S3 sleep/resume issues on ASUS Z790 systems:
 
-### 1. BIOS Setting (CRITICAL - Manual Step Required)
+- Disables ASUS System Analysis service (causes timeout issues)
+- Configures network adapters to only wake on WOL magic packets
+- Disables hibernate (frees ~30GB disk space)
+- Disables Hybrid Sleep (prevents prolonged sleep crashes)
+- Disables Wake Timers (prevents scheduled wake interruptions)
+- Configures media playback to prevent idle sleep
+- Disables USB selective suspend
 
-**This is the most important fix and must be done manually in BIOS.**
+**PREREQUISITE:** Disable Fast Boot in BIOS first (Boot > Fast Boot > Disabled)
 
-1. Restart and press **DEL** to enter UEFI BIOS
-2. Navigate to **Boot** section
-3. Set **Fast Boot** to **Disabled**
-4. Save and Exit (F10)
+### 2. Enable Auto-Login (`Enable-AutoLogin.ps1`)
 
-> WARNING: Without this change, S3 sleep will NOT work properly on Z790 boards.
+Configures Windows to automatically log in without requiring a password:
 
-### 2. Update NVIDIA Driver
+- Enables the password checkbox in User Accounts dialog (netplwiz)
+- Sets auto-login credentials in registry
+- Disables sign-in requirement after sleep/resume
 
-Download and install the latest NVIDIA driver from:
-- https://www.nvidia.com/drivers
+### 3. Set UTC Clock (`Set-UTCClock.ps1`)
 
-The old driver (August 2024) had sleep/resume issues. Use the latest available.
+Configures Windows for dual-boot compatibility with Linux:
 
-### 3. Run the PowerShell Fix Script
+- Sets `RealTimeIsUniversal` registry key so Windows interprets hardware clock as UTC
+- Sets timezone to Pacific Standard Time
+- Requires restart to take effect
 
-After completing the BIOS change and driver update, run the included script as Administrator:
+### 4. Apple Magic Trackpad Driver (`Install-MacTrackpad.ps1`)
 
-**Easiest method:** Double-click `run-fix.bat` and click Yes on UAC prompt.
+Installs the Mac Precision Touchpad driver for full gesture support:
 
-Alternative - run from an elevated PowerShell:
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\cloudgenius\Documents\S3-Sleep-Fix\fix-s3-sleep.ps1"
+- Downloads driver from [mac-precision-touchpad](https://github.com/imbushuo/mac-precision-touchpad) GitHub releases
+- Installs driver to Windows driver store via pnputil
+- Provides instructions for manual device driver update
+
+### 5. Development Environment Setup (`Setup-DevEnvironment.ps1`)
+
+Installs common development tools via winget:
+
+- **Git** - Version control
+- **Visual Studio Code** - Code editor
+- **Google Chrome** - Web browser
+- **Apple Music** - From Microsoft Store
+- **WSL (Windows Subsystem for Linux)** - With Ubuntu
+- **Bitwarden** - Password manager extension for Edge/Chrome
+- **Node.js LTS** - JavaScript runtime
+- Configures Windows settings (file extensions, hidden files, dark mode)
+
+## Usage
+
+### Interactive Mode (Recommended)
+
+Double-click `Setup-DevEnvironment.bat` - you'll be prompted to run each script:
+
+```
+[1/5] S3 Sleep Fix Script
+[2/5] Enable AutoLogin Script
+[3/5] Set UTC Clock Script
+[4/5] Apple Magic Trackpad Driver
+[5/5] Development Environment Setup
 ```
 
-> Note: The `run-fix.bat` file bypasses PowerShell's script execution policy automatically.
+### Run Individual Scripts
 
-The script will:
-- Disable the problematic ASUS System Analysis service
-- Configure network adapters to only wake on WOL magic packets (prevents random wake)
-- Disable hibernate (doesn't work on this system, frees ~30GB disk space)
-- Disable Hybrid Sleep (prevents prolonged sleep crashes)
-- Disable Wake Timers (prevents scheduled tasks from waking system)
-- Verify sleep states are available
-
-### 4. Test Sleep
-
-After applying all fixes:
+From an elevated PowerShell:
 
 ```powershell
-# Test sleep from PowerShell
-rundll32.exe powrprof.dll,SetSuspendState 0,1,0
+# S3 Sleep Fix
+powershell -ExecutionPolicy Bypass -File "fix-s3-sleep.ps1"
+
+# Enable Auto-Login
+powershell -ExecutionPolicy Bypass -File "Enable-AutoLogin.ps1"
+
+# Set UTC Clock
+powershell -ExecutionPolicy Bypass -File "Set-UTCClock.ps1"
+
+# Install Trackpad Driver
+powershell -ExecutionPolicy Bypass -File "Install-MacTrackpad.ps1"
+
+# Dev Environment Setup
+powershell -ExecutionPolicy Bypass -File "Setup-DevEnvironment.ps1"
 ```
 
-Wake with keyboard or mouse. The system should resume properly.
-
-## Troubleshooting
+## S3 Sleep Troubleshooting
 
 ### Check what woke the system
 ```powershell
@@ -93,6 +126,11 @@ Get-WinEvent -FilterHashtable @{LogName='System'; Id=41,6008} -MaxEvents 5
 Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Power-Troubleshooter'} -MaxEvents 5 | Format-List TimeCreated, Message
 ```
 
+### Test sleep manually
+```powershell
+rundll32.exe powrprof.dll,SetSuspendState 0,1,0
+```
+
 ### If prolonged sleep still fails
 
 Try these additional BIOS settings:
@@ -100,7 +138,7 @@ Try these additional BIOS settings:
 - **Package C-State Limit** - Set to C2 or disable
 - **ASPM (Active State Power Management)** - Disable
 
-## Summary of Changes
+## Summary of S3 Sleep Changes
 
 | Change | Method | Purpose |
 |--------|--------|---------|
@@ -113,16 +151,6 @@ Try these additional BIOS settings:
 | Hybrid Sleep = Disabled | Script | Prevents prolonged sleep crashes |
 | Wake Timers = Disabled | Script | Prevents scheduled wake interruptions |
 
-## Power Settings (Default)
-
-| Setting | Value |
-|---------|-------|
-| Turn off display | 5 minutes |
-| Sleep after | 15 minutes |
-
-These can be adjusted in Windows Settings > System > Power & battery.
-
 ---
 
-*Created: January 10, 2026*
-*System: ASUS Z790P-Wifi / i9-14900K / RTX 4090 / 64GB RAM*
+*Last Updated: January 14, 2026*
